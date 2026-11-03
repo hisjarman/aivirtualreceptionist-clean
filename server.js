@@ -176,7 +176,7 @@ app.patch("/api/admin/leads/:id", requireAdmin, async (req, res) => {
 });
 
 app.get("/admin", (_req, res) => res.sendFile(path.join(__dirname, "admin.html")));
-app.use(express.static(__dirname, { index: "index.html", dotfiles: "ignore" }));
+app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "index.html")));
 app.use((req, res) => res.status(404).send("Not found"));
 
 initializeDatabase().then(() => {
