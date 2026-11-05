@@ -20,14 +20,24 @@ This branch turns the existing static marketing site into the first stage of a m
 4. Run `npm start`.
 5. Open `http://localhost:10000` and choose **Client login**.
 
-## Clerk setup
-1. Create a Clerk application.
-2. Enable Google as a social connection in Clerk.
-3. Enable email and password sign-in (and email verification).
-4. Add the deployed application domain to Clerk's allowed origins/redirect URLs.
-5. Put the Clerk publishable and secret keys in Render environment variables. Never commit secret keys.
+## Clerk setup — use the existing application
 
-The browser receives only `CLERK_PUBLISHABLE_KEY`. The Clerk secret key stays server-side. API routes verify the Clerk session and scope every database query to the authenticated Clerk user ID.
+This project already contains Clerk integration. Do **not** run `clerk init` and do not create a second application.
+
+The selected existing Clerk application ID is `app_3LforXQ9gwFjAR2ulQo87gr4ukE`.
+
+From a local checkout of this branch, open a terminal in the project directory and:
+
+1. Authenticate the CLI: `npx -y clerk@latest auth login`.
+2. If this project is not already linked to a different Clerk application, link the selected application: `npx -y clerk@latest link --app app_3LforXQ9gwFjAR2ulQo87gr4ukE`.
+3. Run `npx -y clerk@latest doctor` to check the integration.
+4. If the local development keys are missing, run `npx -y clerk@latest env pull`. Do not overwrite working keys or link away from another application without confirming first.
+
+Configure the selected Clerk application's sign-in methods in the Clerk Dashboard: enable email/password and Google as desired. The current portal UI is already wired to Clerk's sign-in component.
+
+For Render, set `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in the web service's environment settings. The publishable key is public; the secret key must remain server-side and must never be committed or pasted into chat. Do not use production keys until the Clerk application is claimed and production configuration is complete.
+
+The browser receives only `CLERK_PUBLISHABLE_KEY`. The Clerk secret key stays server-side. API routes verify the Clerk session and scope database queries to the authenticated Clerk user ID.
 
 ## Render
 The `render.yaml` Blueprint defines a Node web service and PostgreSQL database on free plans in Oregon. Free database availability, limits, and retention can change; verify the plan shown in Render before applying. Applying the Blueprint is a separate step and creates resources. It does not alter the separate survey service.
