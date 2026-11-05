@@ -18,10 +18,12 @@ app.disable("x-powered-by");
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(express.json({ limit: "100kb" }));
 app.use("/api", rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: "draft-7", legacyHeaders: false }));
-app.use(clerkMiddleware());
+const authMiddleware = process.env.CLERK_SECRET_KEY ? clerkMiddleware() : (req, res, next) => next();
+app.use(authMiddleware);
 
 function requireDatabase(req,res,next){if(!pool)return res.status(503).json({error:"Database is not configured yet."});next();}
 function requireUser(req,res,next){
+  if (!process.env.CLERK_SECRET_KEY) return res.status(503).json({error:"Clerk authentication is not configured yet."});
   const { userId } = getAuth(req);
   if(!userId)return res.status(401).json({error:"Please sign in to continue."});
   req.userId=userId;next();
