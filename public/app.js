@@ -49,4 +49,5 @@ $("profile-form").addEventListener("submit",async e=>{
  catch(err){$("profile-message").textContent=err.message;$("profile-message").className="small error";}
 });
 $("sign-out").addEventListener("click",()=>clerk?.signOut({redirectUrl:"/"}));
+$("retell-test").addEventListener("click",async()=>{const b=$("retell-test"),m=$("retell-message");b.disabled=true;m.textContent="Testing connection...";try{await api("/api/integrations/retell/test",{method:"POST",body:"{}"});m.textContent="Retell API connection successful.";}catch(e){m.textContent=e.message;}finally{b.disabled=false;}});
 start();
