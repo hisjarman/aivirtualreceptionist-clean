@@ -74,7 +74,7 @@ app.get("/api/config",(req,res)=>res.json({clerkPublishableKey:process.env.CLERK
 app.get("/api/me",requireUser,requireDatabase,async(req,res)=>{
  try{
   await pool.query("INSERT INTO business_profiles(clerk_user_id) VALUES($1) ON CONFLICT DO NOTHING",[req.userId]);
-  const [profile,leads]=await Promise.all([
+  const [profile,leads,calls]=await Promise.all([
    pool.query("SELECT business_name,business_type,business_phone,service_area,business_hours,instructions,retell_agent_id,retell_phone_number,updated_at FROM business_profiles WHERE clerk_user_id=$1",[req.userId]),
    pool.query("SELECT id,name,phone,email,service_requested,source,created_at FROM leads WHERE clerk_user_id=$1 ORDER BY created_at DESC LIMIT 20",[req.userId]),
    pool.query("SELECT call_id,event,call_status,from_number,to_number,transcript,recording_url,duration_ms,call_analysis,updated_at FROM retell_calls WHERE clerk_user_id=$1 ORDER BY updated_at DESC LIMIT 25",[req.userId])
