@@ -30,6 +30,7 @@ const authMiddleware = process.env.CLERK_SECRET_KEY ? clerkMiddleware() : (req, 
 app.use(authMiddleware);
 
 function requireDatabase(req,res,next){if(!pool)return res.status(503).json({error:"Database is not configured yet."});next();}
+function requireOwner(req,res,next){if(!process.env.OWNER_CLERK_USER_ID || req.userId !== process.env.OWNER_CLERK_USER_ID)return res.status(403).json({error:"Owner access required."});next();}
 function requireUser(req,res,next){
   if (!process.env.CLERK_SECRET_KEY) return res.status(503).json({error:"Clerk authentication is not configured yet."});
   const { userId } = getAuth(req);
@@ -74,10 +75,11 @@ app.get("/api/me",requireUser,requireDatabase,async(req,res)=>{
  try{
   await pool.query("INSERT INTO business_profiles(clerk_user_id) VALUES($1) ON CONFLICT DO NOTHING",[req.userId]);
   const [profile,leads]=await Promise.all([
-   pool.query("SELECT business_name,business_type,business_phone,service_area,business_hours,instructions,updated_at FROM business_profiles WHERE clerk_user_id=$1",[req.userId]),
-   pool.query("SELECT id,name,phone,email,service_requested,source,created_at FROM leads WHERE clerk_user_id=$1 ORDER BY created_at DESC LIMIT 20",[req.userId])
+   pool.query("SELECT business_name,business_type,business_phone,service_area,business_hours,instructions,retell_agent_id,retell_phone_number,updated_at FROM business_profiles WHERE clerk_user_id=$1",[req.userId]),
+   pool.query("SELECT id,name,phone,email,service_requested,source,created_at FROM leads WHERE clerk_user_id=$1 ORDER BY created_at DESC LIMIT 20",[req.userId]),
+   pool.query("SELECT call_id,event,call_status,from_number,to_number,transcript,recording_url,duration_ms,call_analysis,updated_at FROM retell_calls WHERE clerk_user_id=$1 ORDER BY updated_at DESC LIMIT 25",[req.userId])
   ]);
-  res.json({profile:profile.rows[0]||null,leads:leads.rows});
+  res.json({profile:profile.rows[0]||null,leads:leads.rows,calls:calls.rows});
  }catch(e){console.error("GET /api/me",e);res.status(500).json({error:"Unable to load your account."});}
 });
 app.put("/api/profile",requireUser,requireDatabase,async(req,res)=>{
@@ -89,6 +91,9 @@ app.put("/api/profile",requireUser,requireDatabase,async(req,res)=>{
   res.json({ok:true});
  }catch(e){console.error("PUT /api/profile",e);res.status(500).json({error:"Unable to save your business profile."});}
 });
+app.get("/api/integrations/retell/status",requireUser,requireDatabase,async(req,res)=>{try{const r=await pool.query("SELECT retell_agent_id,retell_phone_number FROM business_profiles WHERE clerk_user_id=$1",[req.userId]);res.json({configured:Boolean(process.env.RETELL_API_KEY),agentAssigned:Boolean(r.rows[0]?.retell_agent_id),phoneAssigned:Boolean(r.rows[0]?.retell_phone_number)});}catch(e){console.error(e);res.status(500).json({error:"Unable to load Retell status."});}});
+app.get("/api/admin/customers",requireUser,requireOwner,requireDatabase,async(req,res)=>{try{const r=await pool.query("SELECT clerk_user_id,business_name,business_type,business_phone,retell_agent_id,retell_phone_number,updated_at FROM business_profiles ORDER BY updated_at DESC LIMIT 200");res.json({customers:r.rows});}catch(e){console.error(e);res.status(500).json({error:"Unable to load customers."});}});
+app.put("/api/admin/customers/:userId/retell",requireUser,requireOwner,requireDatabase,async(req,res)=>{const agent=String(req.body?.agentId||"").trim().slice(0,120),phone=String(req.body?.phoneNumber||"").trim().slice(0,40);if(!agent)return res.status(400).json({error:"Retell agent ID is required."});try{const r=await pool.query("UPDATE business_profiles SET retell_agent_id=$2,retell_phone_number=$3,updated_at=NOW() WHERE clerk_user_id=$1 RETURNING clerk_user_id,retell_agent_id,retell_phone_number",[req.params.userId,agent,phone]);if(!r.rowCount)return res.status(404).json({error:"Customer not found."});res.json({ok:true,receptionist:r.rows[0]});}catch(e){console.error(e);res.status(500).json({error:"Unable to assign Retell agent."});}});
 app.post("/api/leads",requireUser,requireDatabase,async(req,res)=>{
  const b=req.body||{};
  try{
