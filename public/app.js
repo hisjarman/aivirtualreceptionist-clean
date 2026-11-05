@@ -23,6 +23,11 @@ async function loadDashboard() {
  $("business-hours").value=data.profile?.business_hours||"";
  $("instructions").value=data.profile?.instructions||"";
  $("lead-count").textContent=String(data.leads?.length||0);
+ $("receptionist-status").textContent=data.profile?.retell_agent_id?"Agent assigned":"Awaiting setup";
+ $("receptionist-number").textContent=data.profile?.retell_phone_number||"No number assigned yet";
+ $("call-count").textContent=String(data.calls?.length||0);
+ $("calls-list").innerHTML=data.calls?.length?data.calls.map(c=>"<div class='panel' style='margin:10px 0;padding:12px'><strong>"+escapeHtml(c.from_number||"Unknown caller")+"</strong><div>"+escapeHtml(c.call_status||c.event||"Call event")+" · "+(c.duration_ms?Math.round(c.duration_ms/1000)+" sec":"Duration pending")+"</div><div class='muted'>"+escapeHtml(c.transcript||"Transcript will appear after call analysis.")+"</div>"+(c.recording_url?"<a href='"+escapeHtml(c.recording_url)+"' target='_blank' rel='noopener'>Listen to recording</a>":"")+"</div>").join(""):"No calls have been received yet.";
+
  $("leads-list").innerHTML=data.leads?.length?data.leads.map(l=>"<div class='panel' style='margin:10px 0;padding:12px'><strong>"+escapeHtml(l.name||"New lead")+"</strong><div>"+escapeHtml(l.phone||"")+"</div><div class='muted'>"+escapeHtml(l.created_at||"")+"</div></div>").join(""):"No leads yet.";
 }
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
