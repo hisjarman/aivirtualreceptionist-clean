@@ -40,3 +40,14 @@ The `render.yaml` Blueprint defines a Node web service and PostgreSQL database o
 
 ## Current implementation boundary
 The portal currently supports Clerk sign-in UI, a tenant-scoped business profile, and tenant-scoped lead records. Voice-agent provisioning, Retell/HelloAnswer sync, subscription checkout, HubSpot sync, admin tooling, and production acceptance testing still need to be connected. No Manus SDK or Firebase Auth dependency is used in this implementation.
+
+
+## Retell AI integration (initial backend)
+- Add RETELL_API_KEY in Render as a secret. Use the Retell API key marked as the webhook key; the backend uses it to verify webhook signatures.
+- Add OWNER_CLERK_USER_ID in Render with the platform owner's Clerk user ID. This protects customer and agent assignment endpoints.
+- Set the Retell account webhook URL to https://YOUR-RENDER-HOST/api/webhooks/retell and enable call events.
+- The backend verifies webhook signatures and timestamps, maps events to a customer by assigned Retell agent ID, and stores call status, transcript, recording URL, duration, analysis and cost.
+- Owner-only API endpoints list customers and assign each customer's Retell agent ID and phone number. Customers can only read their own calls.
+- The dashboard will display recent call activity after the customer is assigned a Retell agent ID.
+
+This is an initial integration foundation, not a complete self-serve provisioning flow. It does not yet automatically create Retell agents or purchase phone numbers. Add those actions with plan and usage controls before exposing them to customers.
