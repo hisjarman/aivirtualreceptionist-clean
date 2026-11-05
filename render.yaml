@@ -1,0 +1,30 @@
+databases:
+  - name: aivr-postgres
+    databaseName: aivr
+    user: aivr
+    plan: free
+    region: oregon
+
+services:
+  - type: web
+    name: aivirtualreceptionist-app
+    runtime: node
+    plan: free
+    region: oregon
+    branch: rebuild-clerk-saas
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aivr-postgres
+          property: connectionString
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: HUBSPOT_PRIVATE_APP_TOKEN
+        sync: false
