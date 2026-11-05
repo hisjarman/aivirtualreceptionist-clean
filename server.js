@@ -1,6 +1,8 @@
 const express = require("express");
 const path = require("path");
 const { verifyRetellSignature, saveRetellEvent } = require("./retell-webhook");
+const RetellModule = require("retell-sdk");
+const Retell = RetellModule.default || RetellModule;
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const { Pool } = require("pg");
@@ -91,6 +93,7 @@ app.put("/api/profile",requireUser,requireDatabase,async(req,res)=>{
   res.json({ok:true});
  }catch(e){console.error("PUT /api/profile",e);res.status(500).json({error:"Unable to save your business profile."});}
 });
+app.post("/api/integrations/retell/test",requireUser,async(req,res)=>{if(!process.env.RETELL_API_KEY)return res.status(503).json({error:"Retell API key is not configured."});try{const client=new Retell({apiKey:process.env.RETELL_API_KEY});await client.agent.list({limit:1});res.json({ok:true,connection:"connected"});}catch(e){console.error("Retell connection test",e);res.status(502).json({error:"Retell connection failed. Check the API key and permissions."});}});
 app.get("/api/integrations/retell/status",requireUser,requireDatabase,async(req,res)=>{try{const r=await pool.query("SELECT retell_agent_id,retell_phone_number FROM business_profiles WHERE clerk_user_id=$1",[req.userId]);res.json({configured:Boolean(process.env.RETELL_API_KEY),agentAssigned:Boolean(r.rows[0]?.retell_agent_id),phoneAssigned:Boolean(r.rows[0]?.retell_phone_number)});}catch(e){console.error(e);res.status(500).json({error:"Unable to load Retell status."});}});
 app.get("/api/admin/customers",requireUser,requireOwner,requireDatabase,async(req,res)=>{try{const r=await pool.query("SELECT clerk_user_id,business_name,business_type,business_phone,retell_agent_id,retell_phone_number,updated_at FROM business_profiles ORDER BY updated_at DESC LIMIT 200");res.json({customers:r.rows});}catch(e){console.error(e);res.status(500).json({error:"Unable to load customers."});}});
 app.put("/api/admin/customers/:userId/retell",requireUser,requireOwner,requireDatabase,async(req,res)=>{const agent=String(req.body?.agentId||"").trim().slice(0,120),phone=String(req.body?.phoneNumber||"").trim().slice(0,40);if(!agent)return res.status(400).json({error:"Retell agent ID is required."});try{const r=await pool.query("UPDATE business_profiles SET retell_agent_id=$2,retell_phone_number=$3,updated_at=NOW() WHERE clerk_user_id=$1 RETURNING clerk_user_id,retell_agent_id,retell_phone_number",[req.params.userId,agent,phone]);if(!r.rowCount)return res.status(404).json({error:"Customer not found."});res.json({ok:true,receptionist:r.rows[0]});}catch(e){console.error(e);res.status(500).json({error:"Unable to assign Retell agent."});}});
