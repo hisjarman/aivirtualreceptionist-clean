@@ -1,0 +1,21 @@
+{
+  "name": "aivirtualreceptionist-saas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Managed AI receptionist SaaS with Clerk authentication and PostgreSQL",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@clerk/express": "^1.7.0",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "pg": "^8.13.1"
+  }
+}
