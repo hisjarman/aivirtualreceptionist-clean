@@ -1,5 +1,6 @@
 const express = require("express");
 const path = require("path");
+const { verifyRetellSignature, saveRetellEvent } = require("./retell-webhook");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const { Pool } = require("pg");
@@ -16,6 +17,13 @@ const pool = process.env.DATABASE_URL ? new Pool({
 
 app.disable("x-powered-by");
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+app.post("/api/webhooks/retell", express.raw({ type: "application/json", limit: "1mb" }), async (req,res) => {
+ const raw=Buffer.isBuffer(req.body)?req.body.toString("utf8"):"";
+ if(!verifyRetellSignature(raw,req.get("x-retell-signature"),process.env.RETELL_API_KEY))return res.status(401).json({error:"Invalid Retell webhook signature."});
+ let payload;try{payload=JSON.parse(raw)}catch{return res.status(400).json({error:"Invalid webhook JSON."})}
+ if(!pool)return res.status(503).json({error:"Database is not configured."});
+ try{await saveRetellEvent(pool,payload);return res.status(204).end()}catch(e){console.error("Retell webhook",e);return res.status(500).json({error:"Unable to store call event."})}
+});
 app.use(express.json({ limit: "100kb" }));
 app.use("/api", rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: "draft-7", legacyHeaders: false }));
 const authMiddleware = process.env.CLERK_SECRET_KEY ? clerkMiddleware() : (req, res, next) => next();
@@ -39,8 +47,12 @@ async function initDatabase(){
   service_area TEXT NOT NULL DEFAULT '',
   business_hours TEXT NOT NULL DEFAULT '',
   instructions TEXT NOT NULL DEFAULT '',
+  retell_agent_id VARCHAR(120),
+  retell_phone_number VARCHAR(40),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
  );
+ ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS retell_agent_id VARCHAR(120);
+ ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS retell_phone_number VARCHAR(40);
  CREATE TABLE IF NOT EXISTS leads(
   id BIGSERIAL PRIMARY KEY,
   clerk_user_id TEXT NOT NULL,
@@ -52,6 +64,8 @@ async function initDatabase(){
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
  );
  CREATE INDEX IF NOT EXISTS leads_user_created_idx ON leads(clerk_user_id, created_at DESC);
+ CREATE TABLE IF NOT EXISTS retell_calls(call_id TEXT PRIMARY KEY,clerk_user_id TEXT NOT NULL,agent_id TEXT NOT NULL,event VARCHAR(40) NOT NULL DEFAULT 'unknown',call_status VARCHAR(40),from_number VARCHAR(40),to_number VARCHAR(40),transcript TEXT,recording_url TEXT,duration_ms INTEGER,start_timestamp BIGINT,end_timestamp BIGINT,call_analysis JSONB,call_cost JSONB,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+ CREATE INDEX IF NOT EXISTS retell_calls_user_updated_idx ON retell_calls(clerk_user_id,updated_at DESC);
  `);
 }
 app.get("/healthz",(req,res)=>res.json({ok:true,databaseConfigured:Boolean(pool),clerkConfigured:Boolean(process.env.CLERK_PUBLISHABLE_KEY&&process.env.CLERK_SECRET_KEY)}));
