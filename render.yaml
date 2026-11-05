@@ -28,3 +28,8 @@ services:
         sync: false
       - key: HUBSPOT_PRIVATE_APP_TOKEN
         sync: false
+
+      - key: RETELL_API_KEY
+        sync: false
+      - key: OWNER_CLERK_USER_ID
+        sync: false
